@@ -1,53 +1,59 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
-
+// Keyboard + mouse. Movement keys and modifiers are polled each frame; one-shot actions
+// (confirm, pause, interact, mute, restart) are queued as a bitmask and taken once.
 export const ACTION_CONFIRM = 1;
 export const ACTION_PAUSE = 2;
+export const ACTION_INTERACT = 4;
+export const ACTION_MUTE = 8;
+export const ACTION_RESTART = 16;
+export const ACTION_SNEAK = 32;
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
+export function createInput() {
+  const held = { left: false, right: false, up: false, down: false, sneak: false, interact: false };
+  let queued = 0;
 
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
+  function keyAction(code) {
+    switch (code) {
+      case 'Enter': case 'Space': return ACTION_CONFIRM;
+      case 'KeyE': return ACTION_INTERACT;
+      case 'KeyP': return ACTION_PAUSE;
+      case 'KeyM': return ACTION_MUTE;
+      case 'KeyR': return ACTION_RESTART;
+      default: return 0;
+    }
+  }
+  function keyDir(code, down) {
+    switch (code) {
+      case 'KeyW': case 'ArrowUp': held.up = down; return;
+      case 'KeyS': case 'ArrowDown': held.down = down; return;
+      case 'KeyA': case 'ArrowLeft': held.left = down; return;
+      case 'KeyD': case 'ArrowRight': held.right = down; return;
+      case 'ShiftLeft': case 'ShiftRight': held.sneak = down; return;
+      default: return;
+    }
+  }
 
-  window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) { keyDir(e.code, true); return; }
+    const action = keyAction(e.code);
+    if (action) {
+      queued |= action;
+      if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+    }
+    keyDir(e.code, true);
   });
-  window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
-  });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
+  window.addEventListener('keyup', (e) => keyDir(e.code, false));
+  window.addEventListener('mousedown', () => { queued |= ACTION_CONFIRM; });
   window.addEventListener('blur', () => {
-    left = false;
-    right = false;
-  });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
+    held.left = held.right = held.up = held.down = held.sneak = false;
   });
 
   return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
-    },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
+    held,
+    /** One-shot actions since the last call. */
     takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
+      const actions = queued;
+      queued = 0;
+      return actions;
     },
   };
 }

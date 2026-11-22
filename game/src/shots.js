@@ -1,79 +1,86 @@
-// The screenshot scenes behind ?shot=start|play|end. Each one plays the real rules forward from a
-// fresh world for a fixed number of steps, steered by a simple autopilot (look ahead each way the
-// paddle could move, keep clear of blocks, chase the lowest coin when that is safe), so the frame
-// is what a short game really looks like and the same seed always gives the same frame.
-import { FIELD, PLAYER, STEP } from './config.js';
-import { EVENT_OVER, KIND_BLOCK } from './world.js';
-import { SCREEN_OVER, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+// The staged scenes behind ?shot=title|sneak|alert|win. Each resets a real world, places the
+// actors by hand for a readable frame, ticks the simulation so cones/light are live, and returns
+// the screen to draw. ?shot frames are what the game genuinely renders — no compositing.
+import { STEP, TILE } from './config.js';
+import { SCREEN_CAUGHT, SCREEN_PLAY, SCREEN_TITLE, SCREEN_WIN } from './render.js';
+import { STATE_CHASE, STATE_SUSPICIOUS } from './world.js';
 
-const START_SECONDS = 5;
-const PLAY_SECONDS = 26;
-const END_LIMIT_SECONDS = 600;
-/**
- * How far ahead, in seconds, the autopilot checks each way it could move: the play scene's pilot
- * looks well ahead and keeps all its lives; the end scene's looks only a moment ahead, so it is
- * caught out once the blocks speed up, as a hurried player is.
- */
-const HORIZON_PLAY = 0.7;
-const HORIZON_END = 0.25;
-const SAMPLE = 1 / 30;
-const DIRECTIONS = [0, -1, 1];
-/** Extra room, each side, it keeps between the paddle and a block. */
-const MARGIN = 10;
-
-/** Seconds until moving in `direction` (-1, 0, 1) runs the paddle into a block; Infinity when it never does. */
-function timeToHit(state, direction, horizon) {
-  const player = state.player;
-  for (let t = SAMPLE; t <= horizon; t += SAMPLE) {
-    const x = Math.min(FIELD.width - player.width, Math.max(0, player.x + direction * PLAYER.speed * t));
-    for (let index = 0; index < state.items.length; index += 1) {
-      const item = state.items[index];
-      if (!item.active || item.kind !== KIND_BLOCK) continue;
-      const y = item.y + item.speed * t;
-      if (y + item.height > player.y && y < player.y + player.height && item.x < x + player.width + MARGIN && item.x + item.width > x - MARGIN) return t;
-    }
-  }
-  return Infinity;
+function place(guard, tx, ty, face, state, detection) {
+  guard.x = (tx + 0.5) * TILE;
+  guard.y = (ty + 0.5) * TILE;
+  guard.face = face;
+  guard.detection = detection;
+  guard.state = state;
+  guard.pause = 0;
 }
 
-/** Of the safe ways to move, the one toward the lowest coin (or the centre); else the one that is hit last. */
-function autopilot(state, horizon) {
-  const player = state.player;
-  let coin = null;
-  for (let index = 0; index < state.items.length; index += 1) {
-    const item = state.items[index];
-    if (item.active && item.kind !== KIND_BLOCK && (coin === null || item.y > coin.y)) coin = item;
-  }
-  const target = coin === null ? FIELD.width / 2 : coin.x + coin.width / 2;
-  const centre = player.x + player.width / 2;
-  const wanted = target > centre + 8 ? 1 : target < centre - 8 ? -1 : 0;
-  let best = wanted;
-  let bestTime = timeToHit(state, wanted, horizon);
-  for (let index = 0; index < DIRECTIONS.length && bestTime !== Infinity; index += 1) {
-    const time = timeToHit(state, DIRECTIONS[index], horizon);
-    if (time > bestTime) {
-      bestTime = time;
-      best = DIRECTIONS[index];
-    }
-  }
-  return best;
+function ring(world, tx, ty, radiusTiles) {
+  world.state.rings.push({ x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE, radius: radiusTiles * TILE, age: 0.18, life: 0.55 });
 }
 
-/**
- * Set `world` to the named scene (start, play or end; any other name is start) and return the
- * screen to draw over it and the best score to show.
- */
 export function stageShot(name, world) {
   world.reset();
-  if (name !== 'play' && name !== 'end') {
-    for (let index = 0; index < START_SECONDS / STEP; index += 1) world.step(STEP, 0, true);
-    return { screen: SCREEN_TITLE, best: 0 };
+  const s = world.state;
+  if (name === 'sneak' || name === 'alert' || name === 'win' || name === 'caught') {
+    // Arrange the four sentries and the intruder for a legible frame.
+    place(world.guards[0], 5, 12.5, 0, 0, 0);            // bottom corridor, walking right
+    place(world.guards[1], 10, 6.5, Math.PI / 2, 0, 0);  // hall slit, facing down
+    place(world.guards[2], 18, 5.5, 0, 0, 0);            // right room, walking right
+    place(world.guards[3], 11, 1.5, 0, 0, 0);            // top corridor, walking right
+    world.player.x = 10.5 * TILE;
+    world.player.y = 9.4 * TILE;
+    world.player.face = Math.PI / 2;
+    world.player.sneak = true;
+    s.time = 12;
   }
-  const limit = name === 'end' ? END_LIMIT_SECONDS : PLAY_SECONDS;
-  const horizon = name === 'end' ? HORIZON_END : HORIZON_PLAY;
-  for (let index = 0; index < limit / STEP; index += 1) {
-    if (world.step(STEP, autopilot(world.state, horizon), false) & EVENT_OVER) break;
+  if (name === 'sneak') {
+    world.guards[1].detection = 0.52;
+    world.guards[1].state = STATE_SUSPICIOUS;
+    s.alarm = 0.42;
+    s.spottedCount = 1;
+    ring(world, 10, 9, 2.8);
+    for (let i = 0; i < Math.floor(0.05 / STEP); i += 1) world.step(STEP, silentInput());
+    return { screen: SCREEN_PLAY };
   }
-  const over = world.state.lives === 0;
-  return { screen: over ? SCREEN_OVER : SCREEN_PLAY, best: world.state.score };
+  if (name === 'alert') {
+    world.player.x = 11.5 * TILE;
+    world.player.y = 10.5 * TILE;
+    world.player.face = Math.PI / 2;
+    world.player.sneak = false;
+    place(world.guards[1], 11, 7.5, Math.PI / 2, STATE_CHASE, 0.88);
+    s.alarm = 0.86;
+    s.alertAny = true;
+    s.spottedCount = 2;
+    ring(world, 11, 9, 2.8);
+    ring(world, 11, 8, 2.8);
+    for (let i = 0; i < Math.floor(0.35 / STEP); i += 1) world.step(STEP, silentInput());
+    return { screen: SCREEN_PLAY };
+  }
+  if (name === 'win') {
+    world.player.x = 22.5 * TILE;
+    world.player.y = 1.5 * TILE;
+    world.player.face = 0;
+    s.hasData = true;
+    s.won = true;
+    s.time = 83;
+    s.spottedCount = 0;
+    return { screen: SCREEN_WIN };
+  }
+  if (name === 'caught') {
+    world.player.x = 10.5 * TILE;
+    world.player.y = 8.5 * TILE;
+    place(world.guards[1], 10, 6.5, Math.PI / 2, STATE_CHASE, 1);
+    s.caught = true;
+    s.alarm = 1;
+    s.time = 47;
+    s.spottedCount = 3;
+    return { screen: SCREEN_CAUGHT };
+  }
+  // title: let the guards patrol a little so the backdrop feels alive
+  for (let i = 0; i < Math.floor(6.4 / STEP); i += 1) world.step(STEP, silentInput());
+  return { screen: SCREEN_TITLE };
+}
+
+function silentInput() {
+  return { left: false, right: false, up: false, down: false, sneak: false, interact: false };
 }
