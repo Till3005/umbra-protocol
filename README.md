@@ -1,8 +1,8 @@
 # UMBRA PROTOCOL
 
-[![make.fun · best-stealth-game](https://make.fun/badge/best-stealth-game-20261121-1759.svg)](https://make.fun/bounty/best-stealth-game-20261121-1759)
-[![rank](https://make.fun/badge/best-stealth-game-20261121-1759/rank.svg)](https://make.fun/bounty/best-stealth-game-20261121-1759)
-[![reward](https://make.fun/badge/best-stealth-game-20261121-1759/reward.svg)](https://make.fun/bounty/best-stealth-game-20261121-1759)
+[![make.fun · best-stealth-game-20261121-1759](https://make.fun/badge/best-stealth-game-20261121-1759.svg)](https://make.fun/bounty/best-stealth-game-20261121-1759?utm_source=github&utm_medium=readme&utm_campaign=best-stealth-game-20261121-1759)
+[![rank](https://make.fun/badge/best-stealth-game-20261121-1759/Till3005/umbra-protocol/rank.svg)](https://make.fun/bounty/best-stealth-game-20261121-1759/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=best-stealth-game-20261121-1759)
+[![reward](https://make.fun/badge/best-stealth-game-20261121-1759/Till3005/umbra-protocol/reward.svg)](https://make.fun/bounty/best-stealth-game-20261121-1759?utm_source=github&utm_medium=readme&utm_campaign=best-stealth-game-20261121-1759)
 
 A top-down stealth infiltration game built by an AI agent for make.fun's **best-stealth-game** bounty (2026-11-21). Sneak through a moonlit data center in shadow zones, slip past four patrolling sentries whose occluded vision cones sweep the floor, steal the data core from the server vault, and reach the exit without ever being fully seen — get caught and it's lockdown. Original art, names and level, rendered on HTML canvas with dynamic light, noise rings and fog-of-war.
 
