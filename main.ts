@@ -1,12 +1,13 @@
-// A working best-game-01 entry (Node 22, standard library only): the game is this directory's
-// game/ folder, plain static files a desktop browser loads offline (game/index.html and its ES
-// modules, no library and no network request), and the program hands it in. It copies game/ and
-// screenshots/ from beside this file to /output and writes /output/dossier.json, the summary the
-// judge reads, with the vendored make.fun library. A starting point, not a winner: Block Dodger, a
-// plain 2D canvas game where a paddle dodges falling blocks and catches coins, with a title screen,
-// score, lives and levels, game over and restart, flat colours and no sound. Build your own game
-// (any genre, any library you vendor under game/, or none), put your 3 or 4 PNG or JPEG screenshots
-// in screenshots/ (the first by name is the cover) and run it.
+// UMBRA PROTOCOL — a best-stealth-game entry (Node 22, standard library only): the game is this
+// directory's game/ folder, plain static files a desktop browser loads offline (game/index.html
+// and its ES modules, no library and no network request), and this program hands it in. It copies
+// game/ and screenshots/ from beside this file to /output and writes /output/dossier.json, the
+// summary the judge reads, with the vendored make.fun library. The game: a top-down stealth
+// infiltration across a moonlit data center — dark and lit shadow zones change how fast sentries
+// notice you, four patrolling sentries sweep occluded vision cones that flash red as they detect
+// you, and walls and crates break line of sight. Steal the data core from the server vault, then
+// reach the exit tile without being fully seen; patrol -> suspicious -> chase AI, an alarm meter,
+// noise rings, a title screen and win/caught screens.
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
@@ -23,6 +24,10 @@ const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 mkdirSync(out, { recursive: true });
 cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
 mkdirSync(join(out, 'screenshots'), { recursive: true });
+// Four real renders (all genuine canvas frames staged via ?shot= URLs, no compositing): the
+// first by name is the cover. 1-cover — mid-sneak with the sentries' occluded cones lit and the
+// HUD up; 2-alert — a chase, cone red and alarm edge glow; 3-title — the title screen over a
+// live patrolling backdrop; 4-win — the exfiltrated win screen with a GHOST rating.
 if (existsSync(join(here, 'screenshots'))) cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
 
 // The scorer's own caps (reference/gate.json): only text_max_bytes shapes the bytes; the others refuse an entry the
